@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Your TEAS 7 Practice Pack | Nurse Entry Prep</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap row"><a class="brand" href="../index.html">Nurse Entry Prep</a><span class="fine">Member area</span></div></header>
+<main class="quiz" id="quiz">
+  <h1>Your TEAS 7 Practice Pack</h1>
+  <p>Enter the access code from your purchase email.</p>
+  <form id="f"><input class="fill" id="code" autocomplete="off" placeholder="NEP-..." style="width:100%;max-width:360px"> <button class="btn" type="submit">Open</button></form>
+  <p class="fine" id="msg"></p>
+  <p class="fine">Lost your code? Email <a href="mailto:support@nurseentryprep.com">support@nurseentryprep.com</a> with your order number.</p>
+</main>
+<script src="../quiz.js"></script>
+<script>
+(function () {
+  const root = document.getElementById('quiz');
+  const b = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function open(code) {
+    const box = await fetch('pack.enc.json').then((r) => r.json());
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(code), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b(box.salt), iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(box.iv) }, key, b(box.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  function menu(pack) {
+    let h = '<h1>Your TEAS 7 Practice Pack</h1><p>Pick a test and a section. Each answer is checked as you go, with the explanation.</p>';
+    for (const t of ['A', 'B']) {
+      h += `<h2>Practice Test ${t}</h2>`;
+      pack[t].sections.forEach((s, i) => { h += `<button class="choice" data-t="${t}" data-i="${i}"><strong>${s.name}</strong> — ${s.questions.length} questions</button>`; });
+    }
+    h += '<p class="fine" style="margin-top:20px">Prefer paper? Your printable PDF is in your purchase email.</p>';
+    root.innerHTML = h;
+    root.querySelectorAll('[data-t]').forEach((btn) => btn.addEventListener('click', () => {
+      const s = pack[btn.dataset.t].sections[+btn.dataset.i];
+      window.runQuiz(root, { section: s.name, passages: s.passages, questions: s.questions }, { mode: 'practice' });
+      const back = document.createElement('p');
+      back.innerHTML = '<a href="#" id="back">← Back to all sections</a>';
+      root.parentNode.insertBefore(back, root);
+      back.querySelector('#back').addEventListener('click', (e) => { e.preventDefault(); back.remove(); menu(pack); });
+    }));
+  }
+  async function go(code) {
+    try {
+      const pack = await open(code.trim());
+      try { localStorage.setItem('nep_code', code.trim()); } catch (e) {}
+      menu(pack);
+    } catch (e) {
+      document.getElementById('msg').textContent = 'That code did not work. Check it and try again.';
+    }
+  }
+  document.getElementById('f').addEventListener('submit', (e) => { e.preventDefault(); go(document.getElementById('code').value); });
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get('code');
+  let saved = null; try { saved = localStorage.getItem('nep_code'); } catch (e) {}
+  if (fromHash || saved) go(fromHash || saved);
+})();
+</script>
+</body>
+</html>
