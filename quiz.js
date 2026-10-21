@@ -1,5 +1,6 @@
 // Quiz engine. mode "diagnostic": answer all, then score by section + offer.
 // mode "practice": one section, explanation shown after each answer, review at the end.
+// mode "exam": timed section like test day, no feedback until the end, score by subtopic.
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -31,13 +32,23 @@
     const qs = data.questions;
     const answers = new Array(qs.length).fill(null);
     let i = 0;
+    let timer = null, endAt = null;
+    if (mode === 'exam' && opts.minutes) {
+      endAt = Date.now() + opts.minutes * 60000;
+      timer = setInterval(() => {
+        const el = document.getElementById('clock');
+        const left = Math.max(0, endAt - Date.now());
+        if (el) el.textContent = Math.floor(left / 60000) + ':' + String(Math.floor((left % 60000) / 1000)).padStart(2, '0');
+        if (left <= 0) finish();
+      }, 1000);
+    }
     track(mode === 'diagnostic' ? 'diagnostic_start' : 'practice_start', { section: data.section || '' });
 
     function render() {
       const q = qs[i];
       const p = q.passage_id ? passages[q.passage_id] : null;
       const done = mode === 'practice' && answers[i] !== null && answers[i].locked;
-      let h = `<div class="qmeta"><span>Question ${i + 1} of ${qs.length}</span><span>${esc(q.section || data.section || '')}</span></div>
+      let h = `<div class="qmeta"><span>Question ${i + 1} of ${qs.length}</span><span>${esc(q.section || data.section || '')}${mode === 'exam' ? ' · ⏱ <strong id="clock">' + opts.minutes + ':00</strong>' : ''}</span></div>
         <div class="progress"><span style="width:${(i / qs.length) * 100}%"></span></div>`;
       if (p) h += `<div class="passage">${p.title ? '<strong>' + esc(p.title) + '</strong>\n\n' : ''}${esc(p.text)}</div>`;
       h += `<div class="stem">${esc(q.stem)}</div>`;
@@ -87,7 +98,12 @@
       if (nx) nx.addEventListener('click', () => { if (i < qs.length - 1) { i++; render(); window.scrollTo(0, 0); } else finish(); });
     }
 
+    let finished = false;
     function finish() {
+      if (finished) return; finished = true;
+      if (timer) clearInterval(timer);
+      const bySub = {};
+      qs.forEach((q, n) => { const k = q.subtopic || 'Other'; bySub[k] = bySub[k] || { r: 0, t: 0 }; bySub[k].t++; if (isCorrect(q, answers[n] && answers[n].v)) bySub[k].r++; });
       const bySec = {};
       let right = 0;
       qs.forEach((q, n) => {
@@ -107,6 +123,12 @@
         h += `<div class="bar"><div class="qmeta"><span>${esc(s)}</span><span>${v.r}/${v.t} (${p}%)</span></div><div class="track"><div class="fill ${p < 50 ? 'low' : p < 75 ? 'mid' : ''}" style="width:${p}%"></div></div></div>`;
       }
       h += `</div>`;
+      if (mode === 'exam') {
+        h += `<h2>By topic</h2><div class="bars">`;
+        for (const [s2, v] of Object.entries(bySub)) { const p2 = Math.round((v.r / v.t) * 100); h += `<div class="bar"><div class="qmeta"><span>${esc(s2)}</span><span>${v.r}/${v.t} (${p2}%)</span></div><div class="track"><div class="fill ${p2 < 50 ? 'low' : p2 < 75 ? 'mid' : ''}" style="width:${p2}%"></div></div></div>`; }
+        h += `</div><p class="fine">Study the topics in red and orange first — the study guide in your PDF covers each one.</p>`;
+        if (opts.nextLabel) h += `<button class="btn wide" id="nextsec">${esc(opts.nextLabel)}</button>`;
+      }
       if (mode === 'diagnostic') {
         h += `<div class="offer"><h2 style="margin-top:0">Your weakest area: ${esc(weakest.s)}</h2>
           <p>This diagnostic is a short sample. The full TEAS 7 Practice Pack gives you two complete 170-question practice tests with every answer explained, plus a study guide and a 4-week plan, so you can fix ${esc(weakest.s)} before test day.</p>
@@ -122,6 +144,9 @@
       });
       root.innerHTML = h;
       window.scrollTo(0, 0);
+      const ns = document.getElementById('nextsec');
+      if (ns && opts.onNext) ns.addEventListener('click', () => opts.onNext({ right, total: qs.length }));
+      if (opts.onFinish) opts.onFinish({ right, total: qs.length, section: data.section });
       root.querySelectorAll('[data-checkout]').forEach((a) => a.addEventListener('click', () => track('begin_checkout', { source: 'diagnostic' })));
     }
     render();

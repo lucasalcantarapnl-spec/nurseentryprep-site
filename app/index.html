@@ -28,22 +28,49 @@
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(box.iv) }, key, b(box.ct));
     return JSON.parse(new TextDecoder().decode(pt));
   }
-  function menu(pack) {
-    let h = '<h1>Your TEAS 7 Practice Pack</h1><p>Pick a test and a section. Each answer is checked as you go, with the explanation.</p>';
-    for (const t of ['A', 'B']) {
-      h += `<h2>Practice Test ${t}</h2>`;
-      pack[t].sections.forEach((s, i) => { h += `<button class="choice" data-t="${t}" data-i="${i}"><strong>${s.name}</strong> — ${s.questions.length} questions</button>`; });
+  const MIN = { 'Reading': 55, 'Math': 57, 'Science': 60, 'English & Language Usage': 37 };
+  function backLink(pack) {
+    const back = document.createElement('p');
+    back.innerHTML = '<a href="#" id="back">← Back to all tests</a>';
+    root.parentNode.insertBefore(back, root);
+    back.querySelector('#back').addEventListener('click', (e) => { e.preventDefault(); back.remove(); menu(pack); });
+  }
+  function runSection(pack, t, i, mode, chain, totals) {
+    const s = pack[t].sections[i];
+    const last = i === pack[t].sections.length - 1;
+    const opts = { mode, minutes: mode === 'exam' ? MIN[s.name] : 0 };
+    if (chain) {
+      opts.nextLabel = last ? 'See my full test report' : 'Start next section: ' + pack[t].sections[i + 1].name;
+      opts.onNext = (r) => {
+        totals.push({ name: s.name, right: r.right, total: r.total });
+        if (!last) runSection(pack, t, i + 1, mode, chain, totals);
+        else report(totals);
+      };
     }
-    h += '<p class="fine" style="margin-top:20px">Prefer paper? Your printable PDF is in your purchase email.</p>';
+    window.runQuiz(root, { section: s.name, passages: s.passages, questions: s.questions }, opts);
+    window.scrollTo(0, 0);
+  }
+  function report(totals) {
+    const R = totals.reduce((a, x) => a + x.right, 0), T = totals.reduce((a, x) => a + x.total, 0);
+    let h = `<h1>Full practice test report</h1><div class="score-big">${Math.round(R / T * 100)}%</div><p>${R} of ${T} correct.</p><div class="bars">`;
+    totals.forEach((x) => { const p = Math.round(x.right / x.total * 100); h += `<div class="bar"><div class="qmeta"><span>${x.name}</span><span>${x.right}/${x.total} (${p}%)</span></div><div class="track"><div class="fill ${p < 50 ? 'low' : p < 75 ? 'mid' : ''}" style="width:${p}%"></div></div></div>`; });
+    h += '</div><p class="fine">Schools set their own TEAS score requirements. Check your program\'s minimum and focus your study on your lowest section first.</p>';
     root.innerHTML = h;
-    root.querySelectorAll('[data-t]').forEach((btn) => btn.addEventListener('click', () => {
-      const s = pack[btn.dataset.t].sections[+btn.dataset.i];
-      window.runQuiz(root, { section: s.name, passages: s.passages, questions: s.questions }, { mode: 'practice' });
-      const back = document.createElement('p');
-      back.innerHTML = '<a href="#" id="back">← Back to all sections</a>';
-      root.parentNode.insertBefore(back, root);
-      back.querySelector('#back').addEventListener('click', (e) => { e.preventDefault(); back.remove(); menu(pack); });
-    }));
+  }
+  function menu(pack) {
+    let h = '<h1>Your TEAS 7 Practice Pack</h1><p><strong>Exam mode</strong> works like test day: timed sections, no answers shown until the end, then a score by section and topic. <strong>Practice mode</strong> checks each answer as you go, with the explanation.</p>';
+    for (const t of ['A', 'B']) {
+      h += `<h2>Practice Test ${t}</h2><button class="btn wide" data-full="${t}">Take the full timed test (170 questions · 209 min)</button><p class="fine" style="margin:14px 0 4px">Or one section at a time:</p>`;
+      pack[t].sections.forEach((s, i) => {
+        h += `<div class="choice" style="cursor:default"><strong>${s.name}</strong> — ${s.questions.length} questions<br>
+          <button class="btn small" data-t="${t}" data-i="${i}" data-m="exam">Exam mode · ${MIN[s.name]} min</button>
+          <button class="btn small ghost" data-t="${t}" data-i="${i}" data-m="practice">Practice mode</button></div>`;
+      });
+    }
+    h += '<p class="fine" style="margin-top:20px">Prefer paper? The printable PDF is in your purchase email.</p>';
+    root.innerHTML = h;
+    root.querySelectorAll('[data-full]').forEach((b) => b.addEventListener('click', () => { backLink(pack); runSection(pack, b.dataset.full, 0, 'exam', true, []); }));
+    root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { backLink(pack); runSection(pack, b.dataset.t, +b.dataset.i, b.dataset.m, false); }));
   }
   async function go(code) {
     try {
