@@ -33,9 +33,11 @@
     const answers = new Array(qs.length).fill(null);
     let i = 0;
     let timer = null, endAt = null;
+    const token = (window.__qtok = (window.__qtok || 0) + 1);
     if (mode === 'exam' && opts.minutes) {
       endAt = Date.now() + opts.minutes * 60000;
       timer = setInterval(() => {
+        if (window.__qtok !== token) { clearInterval(timer); return; }
         const el = document.getElementById('clock');
         const left = Math.max(0, endAt - Date.now());
         if (el) el.textContent = Math.floor(left / 60000) + ':' + String(Math.floor((left % 60000) / 1000)).padStart(2, '0');
