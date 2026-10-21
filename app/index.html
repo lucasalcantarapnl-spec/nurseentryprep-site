@@ -67,14 +67,31 @@
           <button class="btn small ghost" data-t="${t}" data-i="${i}" data-m="practice">Practice mode</button></div>`;
       });
     }
-    h += '<p class="fine" style="margin-top:20px">Prefer paper? The printable PDF is in your purchase email.</p>';
+    h += '<h2>Printable PDF</h2><p>Both practice tests, the answer keys with explanations and the full study guide (about 160 pages).</p><button class="btn ghost" id="pdf">Download the PDF</button> <span class="fine" id="pdfmsg"></span>';
     root.innerHTML = h;
+    document.getElementById('pdf').addEventListener('click', downloadPdf);
     root.querySelectorAll('[data-full]').forEach((b) => b.addEventListener('click', () => { backLink(pack); runSection(pack, b.dataset.full, 0, 'exam', true, []); }));
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { backLink(pack); runSection(pack, b.dataset.t, +b.dataset.i, b.dataset.m, false); }));
+  }
+  let CODE = '';
+  async function downloadPdf() {
+    const m = document.getElementById('pdfmsg'); m.textContent = 'Preparing your PDF…';
+    try {
+      const buf = new Uint8Array(await fetch('pack.pdf.enc').then((r) => r.arrayBuffer()));
+      const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(CODE), 'PBKDF2', false, ['deriveKey']);
+      const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: buf.slice(0, 16), iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(16, 28) }, key, buf.slice(28));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([pt], { type: 'application/pdf' }));
+      a.download = 'TEAS7-Practice-Pack-NurseEntryPrep.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      m.textContent = 'Done. Check your downloads.';
+    } catch (e) { m.textContent = 'Download failed. Please try again or email support.'; }
   }
   async function go(code) {
     try {
       const pack = await open(code.trim());
+      CODE = code.trim();
       try { localStorage.setItem('nep_code', code.trim()); } catch (e) {}
       menu(pack);
     } catch (e) {
