@@ -132,10 +132,13 @@
         if (opts.nextLabel) h += `<button class="btn wide" id="nextsec">${esc(opts.nextLabel)}</button>`;
       }
       if (mode === 'diagnostic') {
-        h += `<div class="offer"><h2 style="margin-top:0">Your weakest area: ${esc(weakest.s)}</h2>
-          <p>This diagnostic is a short sample. The full TEAS 7 Practice Pack gives you two complete 170-question practice tests with every answer explained, plus a study guide and a 4-week plan, so you can fix ${esc(weakest.s)} before test day.</p>
-          <p class="amount">$49 <span class="fine">one-time · 7-day money-back guarantee</span></p>
-          <a class="btn wide" href="${opts.checkout}" data-checkout>Get the full pack</a></div>`;
+        h += `<div class="offer"><h2 style="margin-top:0">Your weakest area right now: ${esc(weakest.s)}</h2>
+          <p>This was only 20 questions. The real TEAS 7 has <strong>170 questions in 209 minutes</strong> — and according to ATI, about 4 in 10 test takers end up retaking it, paying the fee again ($110–$132) and waiting weeks for a new date.</p>
+          <p>The full Practice Pack gives you <strong>2 complete timed exams</strong> with a score report by section and topic, every answer explained, a study guide and a day-by-day plan — so you can fix ${esc(weakest.s)} <em>before</em> test day, not after.</p>
+          <p class="anchor">One retake: $110–$132</p>
+          <p class="amount">$49 <span class="fine">one-time · instant access</span></p>
+          <a class="btn wide big" href="${opts.checkout}" data-checkout>Get the full Practice Pack</a>
+          <div class="guarantee"><strong>7-day money-back guarantee.</strong> If it's not for you, get every cent back. No questions asked.</div></div>`;
       }
       h += `<h2>Review your answers</h2>`;
       qs.forEach((q, n) => {
