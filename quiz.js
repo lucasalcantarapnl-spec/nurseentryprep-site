@@ -152,7 +152,7 @@
       const ns = document.getElementById('nextsec');
       if (ns && opts.onNext) ns.addEventListener('click', () => opts.onNext({ right, total: qs.length }));
       if (opts.onFinish) opts.onFinish({ right, total: qs.length, section: data.section });
-      root.querySelectorAll('[data-checkout]').forEach((a) => a.addEventListener('click', () => track('begin_checkout', { source: 'diagnostic' })));
+      root.querySelectorAll('[data-checkout]').forEach((a) => a.addEventListener('click', () => { if (window.trackCheckout) window.trackCheckout('diagnostic'); else track('begin_checkout', { source: 'diagnostic' }); }));
     }
     render();
   };
